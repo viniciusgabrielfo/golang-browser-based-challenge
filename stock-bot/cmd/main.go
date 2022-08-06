@@ -34,13 +34,17 @@ func main() {
 
 	setupFlags()
 
-	wsClient, err := internal.NewWebSocketClient("ws", chatAddr, chatWsPath, make(chan []byte), log)
+	botListener := make(chan *internal.Message)
+	defer close(botListener)
+
+	wsClient, err := internal.NewWebSocketClient("ws", chatAddr, chatWsPath, botListener, log)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer wsClient.Close()
 
-	wsClient.Write("BOT ENTOUR")
+	stockBot := internal.NewStockBot(wsClient.Write, botListener)
+	stockBot.Start()
 
 	<-stop
 }

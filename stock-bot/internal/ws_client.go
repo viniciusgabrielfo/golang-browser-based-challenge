@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"log"
 	"net/url"
 
 	"github.com/gorilla/websocket"
@@ -11,12 +10,12 @@ import (
 type webSocketClient struct {
 	url        url.URL
 	conn       *websocket.Conn
-	dispatcher chan []byte
+	dispatcher chan *Message
 
 	logger *zap.SugaredLogger
 }
 
-func NewWebSocketClient(scheme, host, path string, dispatcher chan []byte, logger *zap.SugaredLogger) (*webSocketClient, error) {
+func NewWebSocketClient(scheme, host, path string, dispatcher chan *Message, logger *zap.SugaredLogger) (*webSocketClient, error) {
 	client := &webSocketClient{
 		url:        url.URL{Scheme: scheme, Host: host, Path: path},
 		dispatcher: dispatcher,
@@ -51,14 +50,13 @@ func (c *webSocketClient) connect() error {
 func (c *webSocketClient) listen() {
 	c.logger.Info("starting listen websocket messages")
 	for {
-		_, message, err := c.conn.ReadMessage()
-		if err != nil {
-			c.logger.Errorf("error when read message from websocket: %w", err)
+		var msg *Message
+		if err := c.conn.ReadJSON(&msg); err != nil {
+			c.logger.Errorf("error when try to read message from websocket: %w", err)
 			return
 		}
-		log.Printf("recv: %s", message)
 
-		// c.dispatcher <- message
+		c.dispatcher <- msg
 	}
 }
 
@@ -66,8 +64,11 @@ func (c *webSocketClient) Close() error {
 	return c.conn.Close()
 }
 
-func (c *webSocketClient) Write(msg string) {
+func (c *webSocketClient) Write(msg string) error {
 	if err := c.conn.WriteMessage(websocket.TextMessage, []byte(msg)); err != nil {
 		c.logger.Error("error when try to send message to websocket: %w", err)
+		return err
 	}
+
+	return nil
 }

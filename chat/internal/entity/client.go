@@ -1,8 +1,6 @@
 package entity
 
 import (
-	"fmt"
-
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
@@ -28,7 +26,6 @@ func (c *client) Read() {
 
 	for {
 		_, bMsg, err := c.websocket.ReadMessage()
-		fmt.Println(string(bMsg))
 		if err != nil {
 			if !websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
 				c.chatRoom.logger.Error(err)
