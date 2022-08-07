@@ -15,15 +15,20 @@ func MakePublicHandlers(r *chi.Mux, userService user.Service, tokenAuth *jwtauth
 	r.Post("/auth", handleAuthUser(userService, tokenAuth))
 
 	r.HandleFunc("/login", handleLoginPage())
+	r.HandleFunc("/signup", handleSignupPage())
 }
 
 func handleLoginPage() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		template := template.Must(template.ParseFiles("./templates/login.html"))
+		template.Execute(w, nil)
+	}
+}
 
-		data := map[string]interface{}{}
-
-		template.Execute(w, data)
+func handleSignupPage() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		template := template.Must(template.ParseFiles("./templates/signup.html"))
+		template.Execute(w, nil)
 	}
 }
 
