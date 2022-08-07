@@ -3,6 +3,8 @@ module github.com/viniciusgabrielfo/golang-browser-based-challenge/chat
 go 1.18
 
 require (
+	github.com/go-chi/chi/v5 v5.0.7
+	github.com/go-chi/jwtauth/v5 v5.0.2
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/websocket v1.5.0
 	go.uber.org/zap v1.21.0
@@ -10,8 +12,6 @@ require (
 
 require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.0-20210816181553-5444fa50b93d // indirect
-	github.com/go-chi/chi/v5 v5.0.7 // indirect
-	github.com/go-chi/jwtauth/v5 v5.0.2 // indirect
 	github.com/goccy/go-json v0.7.6 // indirect
 	github.com/lestrrat-go/backoff/v2 v2.0.8 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.0 // indirect
