@@ -13,8 +13,10 @@ import (
 )
 
 type stockBot struct {
+	// nick registered for stock-bot
+	nick string
 	// listener is a channel used to stock-bot receive messages to proccess
-	listener chan *Message
+	listener chan *ChatMessage
 	// validCommands stores bot valid commands (key) and if accepts parameters (val)
 	validCommands map[string]func(string, rabbitmq.Producer)
 	// used to send stock-bot messages to chatroom
@@ -24,19 +26,21 @@ type stockBot struct {
 	ctxCancel context.CancelFunc
 }
 
-func NewStockBot(producer rabbitmq.Producer) *stockBot {
+func NewStockBot(nick string, producer rabbitmq.Producer) *stockBot {
 	stockBot := &stockBot{
-		listener:      make(chan *Message),
-		validCommands: map[string]func(string, rabbitmq.Producer){"stock": proccessStockCommand},
-		producer:      producer,
+		nick:     nick,
+		listener: make(chan *ChatMessage),
+		producer: producer,
 	}
+
+	stockBot.validCommands = map[string]func(string, rabbitmq.Producer){"stock": stockBot.proccessStockCommand}
 
 	stockBot.ctx, stockBot.ctxCancel = context.WithCancel(context.Background())
 
 	return stockBot
 }
 
-func (c *stockBot) GetListener() chan *Message {
+func (c *stockBot) GetListener() chan *ChatMessage {
 	return c.listener
 }
 
@@ -70,13 +74,12 @@ func (c *stockBot) proccessCommand(msg string) {
 		command = commandSplitted[0]
 	}
 
-	fmt.Println(command)
 	if proccessFunc, ok := c.validCommands[command]; ok {
 		proccessFunc(msg[1:], c.producer)
 		return
 	}
 
-	c.producer.Send(fmt.Sprintf("command '%s' not found", command))
+	c.producer.Send(c.nick, fmt.Sprintf("command '%s' not found", command))
 }
 
 const stooqGetStockURL = "https://stooq.com/q/l/?s=%s&f=sd2t2ohlcv&h&e=csv"
@@ -86,17 +89,17 @@ const (
 	MessageCommandParameterNotFoundError = "Command '/stock' need a no empety parameter. For example: '/stock=parameter'. Please try again."
 )
 
-func proccessStockCommand(command string, producer rabbitmq.Producer) {
+func (c *stockBot) proccessStockCommand(command string, producer rabbitmq.Producer) {
 	commandSplitted := strings.Split(command, "=")
 
 	if len(commandSplitted) < 2 {
-		producer.Send(MessageCommandNeedParameterError)
+		producer.Send(c.nick, MessageCommandNeedParameterError)
 		return
 	}
 
 	stockName := commandSplitted[1]
 	if stockName == "" {
-		producer.Send(MessageCommandParameterNotFoundError)
+		producer.Send(c.nick, MessageCommandParameterNotFoundError)
 		return
 	}
 
@@ -130,7 +133,7 @@ func proccessStockCommand(command string, producer rabbitmq.Producer) {
 		}
 	}
 
-	if err := producer.Send(stockQuote.String()); err != nil {
+	if err := producer.Send(c.nick, stockQuote.String()); err != nil {
 		log.Fatal(err)
 	}
 }

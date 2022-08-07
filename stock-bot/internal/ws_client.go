@@ -15,7 +15,7 @@ import (
 type webSocketClient struct {
 	url        url.URL
 	conn       *websocket.Conn
-	dispatcher chan *Message
+	dispatcher chan *ChatMessage
 
 	// nick and password used to enable stock-bot to enter in a chatroom
 	nick     string
@@ -24,7 +24,7 @@ type webSocketClient struct {
 	log *zap.SugaredLogger
 }
 
-func NewWebSocketClient(scheme, host, path, botNick, botPass string, dispatcher chan *Message, log *zap.SugaredLogger) (*webSocketClient, error) {
+func NewWebSocketClient(scheme, host, path, botNick, botPass string, dispatcher chan *ChatMessage, log *zap.SugaredLogger) (*webSocketClient, error) {
 	client := &webSocketClient{
 		url:        url.URL{Scheme: scheme, Host: host, Path: path},
 		dispatcher: dispatcher,
@@ -103,7 +103,7 @@ func (c *webSocketClient) auth() (string, error) {
 func (c *webSocketClient) listen() {
 	c.log.Info("starting listen websocket messages")
 	for {
-		var msg *Message
+		var msg *ChatMessage
 		if err := c.conn.ReadJSON(&msg); err != nil {
 			c.log.Errorw("error when try to read message from websocket", "error", err)
 			continue

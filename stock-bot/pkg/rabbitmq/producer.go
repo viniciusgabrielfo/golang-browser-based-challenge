@@ -7,7 +7,7 @@ import (
 )
 
 type Producer interface {
-	Send(msg string) error
+	Send(nick, msg string) error
 }
 
 type producer struct {
@@ -24,14 +24,16 @@ func newProducer(channel *amqp.Channel, exchange string, routing string) *produc
 	}
 }
 
-func (p *producer) Send(msg string) error {
+func (p *producer) Send(nick, msg string) error {
 	if err := p.channel.Publish(
 		p.exchange,
 		p.routing,
 		false,
 		false,
 		amqp.Publishing{
-			Headers:         amqp.Table{},
+			Headers: amqp.Table{
+				"nick": nick,
+			},
 			ContentType:     "text/plain",
 			ContentEncoding: "",
 			Body:            []byte(msg),

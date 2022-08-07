@@ -51,7 +51,7 @@ func main() {
 
 	log = logger.Sugar()
 
-	stockBot := internal.NewStockBot(configStockBotProducer())
+	stockBot := internal.NewStockBot(chatAuthNick, configStockBotProducer())
 	go stockBot.Start()
 	log.Info("stock bot commands listener started...")
 
