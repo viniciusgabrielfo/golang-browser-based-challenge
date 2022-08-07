@@ -6,10 +6,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/jwtauth/v5"
-	amqp "github.com/rabbitmq/amqp091-go"
-	"github.com/viniciusgabrielfo/golang-browser-based-challenge/chat/internal"
 	"github.com/viniciusgabrielfo/golang-browser-based-challenge/chat/internal/entity"
 	"github.com/viniciusgabrielfo/golang-browser-based-challenge/chat/internal/handler"
+	"github.com/viniciusgabrielfo/golang-browser-based-challenge/chat/internal/pkg/rabbitmq"
 	"github.com/viniciusgabrielfo/golang-browser-based-challenge/chat/internal/repository"
 	chatroomsvc "github.com/viniciusgabrielfo/golang-browser-based-challenge/chat/internal/usecase/chatroom"
 	"github.com/viniciusgabrielfo/golang-browser-based-challenge/chat/internal/usecase/user"
@@ -22,20 +21,33 @@ const TopicChatOutbound = "chat.outbound"
 var (
 	addr             string
 	rabbitAddr       string
+	rabbitUser       string
+	rabbitPass       string
 	rabbitRoutingKey string
 	jwtSecret        string
 	stockBotPassword string
-	log              *zap.SugaredLogger
+)
+
+var (
+	log       *zap.SugaredLogger
+	tokenAuth *jwtauth.JWTAuth
 )
 
 func setupFlags() {
 	flag.StringVar(&addr, "addr", ":8000", "http address")
-	flag.StringVar(&rabbitAddr, "rabbit_addr", "amqp://guest:guest@localhost:5672/", "rabbitmq addr")
+	flag.StringVar(&rabbitAddr, "rabbit_addr", "localhost:5672", "rabbitmq host addr")
+	flag.StringVar(&rabbitUser, "rabbit_user", "guest", "rabbitmq user")
+	flag.StringVar(&rabbitPass, "rabbit_password", "guest", "rabbitmq password")
 	flag.StringVar(&rabbitRoutingKey, "rabbit_key", "chat", "rabbitmq binding routing key")
 	flag.StringVar(&jwtSecret, "jwt_secret", "defaultsecret", "jwt secret used to generate jwt tokens")
 	flag.StringVar(&stockBotPassword, "stockbot_password", "stockbotpass123", "password used by stock-bot to auth in chatroom")
 
 	flag.Parse()
+}
+
+func init() {
+	setupFlags()
+	tokenAuth = jwtauth.New("HS256", []byte(jwtSecret), nil)
 }
 
 func main() {
@@ -44,68 +56,16 @@ func main() {
 
 	log = logger.Sugar()
 
-	setupFlags()
-
-	conn, err := amqp.Dial(rabbitAddr)
-	if err != nil {
-		log.Fatal(conn)
-	}
-
-	ch, err := conn.Channel()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if err := ch.ExchangeDeclare(
-		ExchangeChat,
-		"direct",
-		true,
-		false,
-		false,
-		false,
-		nil,
-	); err != nil {
-		log.Fatal(err)
-	}
-
-	queue, err := ch.QueueDeclare(
-		TopicChatOutbound,
-		true,
-		false,
-		false,
-		false,
-		nil,
-	)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if err = ch.QueueBind(
-		queue.Name,
-		rabbitRoutingKey,
-		ExchangeChat,
-		false,
-		nil,
-	); err != nil {
-		log.Fatal(err)
-	}
-
 	chatroom := entity.NewChatroom()
+	stockBotConsumer := configStockBotConsumer(chatroom.GetBroadcastChan())
+
 	userInMemory := repository.NewUserInMemory()
+	createStockBotUser(userInMemory)
 
 	chatroomService := chatroomsvc.NewService(chatroom, log)
 	userService := user.NewService(userInMemory, log)
 
-	createStockBotUser(userInMemory)
-
 	go chatroomService.Start()
-
-	consumer := internal.NewConsumer(ch, "consumer1", TopicChatOutbound)
-	if err := consumer.Start(chatroom.GetBroadcastChan()); err != nil {
-		log.Fatal(err)
-	}
-
-	tokenAuth := jwtauth.New("HS256", []byte(jwtSecret), nil)
 
 	r := chi.NewRouter()
 	handler.MakePrivateHandlers(r, chatroom, userService, tokenAuth, log)
@@ -116,9 +76,27 @@ func main() {
 		log.Fatal("ListenAndServe: ", err)
 	}
 
-	if err := consumer.Close(); err != nil {
+	if err := stockBotConsumer.Close(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func configStockBotConsumer(dispatcher chan *entity.Message) rabbitmq.Consumer {
+	amqpConn, err := rabbitmq.NewAmqpConnManager(rabbitmq.AmqpConfig{
+		User:     rabbitUser,
+		Password: rabbitPass,
+		Host:     rabbitAddr,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	consumer := amqpConn.CreateConsumer("stockbot1", TopicChatOutbound)
+	if err := consumer.Start(dispatcher); err != nil {
+		log.Fatal(err)
+	}
+
+	return consumer
 }
 
 func createStockBotUser(userRepo user.Repository) {

@@ -28,7 +28,7 @@ func (s *service) Read() {
 	for {
 		_, bMsg, err := s.client.Websocket.ReadMessage()
 		if err != nil {
-			if !websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
+			if !websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseAbnormalClosure, websocket.CloseGoingAway) {
 				s.logger.Error(err)
 			}
 			break
