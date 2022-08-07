@@ -91,6 +91,18 @@ func configStockBotConsumer(dispatcher chan *entity.Message) rabbitmq.Consumer {
 		log.Fatal(err)
 	}
 
+	if err := amqpConn.ExchangeDeclare(ExchangeChat, "direct"); err != nil {
+		log.Fatal(err)
+	}
+
+	if err := amqpConn.QueueDeclare(TopicChatOutbound); err != nil {
+		log.Fatal(err)
+	}
+
+	if err := amqpConn.QeueBind(TopicChatOutbound, rabbitRoutingKey, ExchangeChat); err != nil {
+		log.Fatal(err)
+	}
+
 	consumer := amqpConn.CreateConsumer("stockbot1", TopicChatOutbound)
 	if err := consumer.Start(dispatcher); err != nil {
 		log.Fatal(err)
