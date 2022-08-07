@@ -1,6 +1,10 @@
 package internal
 
 import (
+	"bytes"
+	"encoding/json"
+	"io/ioutil"
+	"net/http"
 	"net/url"
 
 	"github.com/gorilla/websocket"
@@ -12,14 +16,20 @@ type webSocketClient struct {
 	conn       *websocket.Conn
 	dispatcher chan *Message
 
-	logger *zap.SugaredLogger
+	// nick and password used to enable stock-bot to enter in a chatroom
+	nick     string
+	password string
+
+	log *zap.SugaredLogger
 }
 
-func NewWebSocketClient(scheme, host, path string, dispatcher chan *Message, logger *zap.SugaredLogger) (*webSocketClient, error) {
+func NewWebSocketClient(scheme, host, path, botNick, botPass string, dispatcher chan *Message, log *zap.SugaredLogger) (*webSocketClient, error) {
 	client := &webSocketClient{
 		url:        url.URL{Scheme: scheme, Host: host, Path: path},
 		dispatcher: dispatcher,
-		logger:     logger,
+		nick:       botNick,
+		password:   botPass,
+		log:        log,
 	}
 
 	if err := client.connect(); err != nil {
@@ -34,12 +44,20 @@ func (c *webSocketClient) connect() error {
 		return nil
 	}
 
-	conn, _, err := websocket.DefaultDialer.Dial(c.url.String(), nil)
+	jwtToken, err := c.auth()
 	if err != nil {
 		return err
 	}
 
-	c.logger.Infof("successfull connection with websocket on %s", c.url.String())
+	header := http.Header{}
+	header.Add("Authorization", "bearer "+jwtToken)
+
+	conn, _, err := websocket.DefaultDialer.Dial(c.url.String(), header)
+	if err != nil {
+		return err
+	}
+
+	c.log.Infof("successfull connection with websocket on %s", c.url.String())
 	c.conn = conn
 
 	go c.listen()
@@ -47,12 +65,45 @@ func (c *webSocketClient) connect() error {
 	return nil
 }
 
+func (c *webSocketClient) auth() (string, error) {
+	authData := struct {
+		Nick     string `json:"nick"`
+		Password string `json:"password"`
+	}{
+		Nick:     c.nick,
+		Password: c.password,
+	}
+
+	authJSON, _ := json.Marshal(authData)
+
+	req, err := http.NewRequest("POST", "http://"+c.url.Host+"/auth", bytes.NewBuffer(authJSON))
+	if err != nil {
+		return "", nil
+	}
+
+	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", nil
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", nil
+	}
+
+	return string(body), nil
+}
+
 func (c *webSocketClient) listen() {
-	c.logger.Info("starting listen websocket messages")
+	c.log.Info("starting listen websocket messages")
 	for {
 		var msg *Message
 		if err := c.conn.ReadJSON(&msg); err != nil {
-			c.logger.Errorf("error when try to read message from websocket: %w", err)
+			c.log.Errorf("error when try to read message from websocket: %w", err)
 			return
 		}
 
@@ -66,7 +117,7 @@ func (c *webSocketClient) Close() error {
 
 func (c *webSocketClient) Write(msg string) error {
 	if err := c.conn.WriteMessage(websocket.TextMessage, []byte(msg)); err != nil {
-		c.logger.Error("error when try to send message to websocket: %w", err)
+		c.log.Error("error when try to send message to websocket: %w", err)
 		return err
 	}
 
