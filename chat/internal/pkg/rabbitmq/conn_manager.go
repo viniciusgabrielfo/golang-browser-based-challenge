@@ -17,10 +17,9 @@ func (s *AmqpConfig) String() string {
 }
 
 type AmqpConnManager struct {
-	conn        *amqp.Connection
-	channel     *amqp.Channel
-	signalClose chan bool
-	config      AmqpConfig
+	conn    *amqp.Connection
+	channel *amqp.Channel
+	config  AmqpConfig
 }
 
 func NewAmqpConnManager(config AmqpConfig) (*AmqpConnManager, error) {
@@ -43,6 +42,14 @@ func NewAmqpConnManager(config AmqpConfig) (*AmqpConnManager, error) {
 	connManager.channel = channel
 
 	return connManager, nil
+}
+
+func (m *AmqpConnManager) Close() error {
+	if err := m.channel.Close(); err != nil {
+		return err
+	}
+
+	return m.conn.Close()
 }
 
 func (m *AmqpConnManager) dial() (*amqp.Connection, error) {

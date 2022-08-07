@@ -45,12 +45,11 @@ func (c *consumer) Start(dispatcher chan *entity.Message) error {
 	}
 	go func() {
 		defer func() {
-			// TODO: log
 			c.done <- nil
 		}()
 
 		for d := range deliveries {
-			dispatcher <- entity.NewMesssage(uuid.UUID{}, "bot", d.Body) // TODO: handle this
+			dispatcher <- entity.NewMesssage(uuid.UUID{}, d.Headers["nick"].(string), d.Body) // TODO: try to get correct UUID
 		}
 	}()
 

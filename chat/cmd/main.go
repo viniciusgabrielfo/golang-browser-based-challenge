@@ -1,10 +1,15 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/cors"
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/viniciusgabrielfo/golang-browser-based-challenge/chat/internal/entity"
 	"github.com/viniciusgabrielfo/golang-browser-based-challenge/chat/internal/handler"
@@ -51,37 +56,44 @@ func init() {
 }
 
 func main() {
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+
 	logger, _ := zap.NewProduction()
 	defer logger.Sync()
 
 	log = logger.Sugar()
+	log.Info("starting chat app...")
 
 	chatroom := entity.NewChatroom()
-	stockBotConsumer := configStockBotConsumer(chatroom.GetBroadcastChan())
 
-	userInMemory := repository.NewUserInMemory()
-	createStockBotUser(userInMemory)
+	amqpConn := createAmqpConnManager()
+	stockBotConsumer := amqpConn.CreateConsumer("chatroom", TopicChatOutbound)
+	if err := stockBotConsumer.Start(chatroom.GetBroadcastChan()); err != nil {
+		log.Fatal(err)
+	}
 
-	chatroomService := chatroomsvc.NewService(chatroom, log)
-	userService := user.NewService(userInMemory, log)
+	httpServer := startHTTPServer(chatroom)
 
-	go chatroomService.Start()
+	<-stop
+	log.Info("starting graceful shutdown...")
 
-	r := chi.NewRouter()
-	handler.MakePrivateHandlers(r, chatroom, userService, tokenAuth, log)
-	handler.MakePublicHandlers(r, userService, tokenAuth)
-
-	log.Info("starting HTTP server on " + addr)
-	if err := http.ListenAndServe(addr, r); err != nil {
-		log.Fatal("ListenAndServe: ", err)
+	if err := httpServer.Shutdown(context.Background()); err != nil {
+		log.Error(err)
 	}
 
 	if err := stockBotConsumer.Close(); err != nil {
 		log.Fatal(err)
 	}
+
+	if err := amqpConn.Close(); err != nil {
+		log.Fatal(err)
+	}
+
+	log.Info("app finished")
 }
 
-func configStockBotConsumer(dispatcher chan *entity.Message) rabbitmq.Consumer {
+func createAmqpConnManager() *rabbitmq.AmqpConnManager {
 	amqpConn, err := rabbitmq.NewAmqpConnManager(rabbitmq.AmqpConfig{
 		User:     rabbitUser,
 		Password: rabbitPass,
@@ -103,12 +115,41 @@ func configStockBotConsumer(dispatcher chan *entity.Message) rabbitmq.Consumer {
 		log.Fatal(err)
 	}
 
-	consumer := amqpConn.CreateConsumer("stockbot1", TopicChatOutbound)
-	if err := consumer.Start(dispatcher); err != nil {
-		log.Fatal(err)
+	return amqpConn
+}
+
+func startHTTPServer(chatroom *entity.Chatroom) *http.Server {
+	r := chi.NewRouter()
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
+		AllowCredentials: true,
+	}))
+
+	userInMemory := repository.NewUserInMemory()
+	createStockBotUser(userInMemory)
+
+	chatroomService := chatroomsvc.NewService(chatroom, log)
+	userService := user.NewService(userInMemory, log)
+
+	go chatroomService.Start()
+
+	handler.MakePrivateHandlers(r, chatroom, userService, tokenAuth, log)
+	handler.MakePublicHandlers(r, userService, tokenAuth)
+
+	server := &http.Server{
+		Addr:    addr,
+		Handler: r,
 	}
 
-	return consumer
+	go func() {
+		log.Info("starting HTTP server on " + addr)
+		if err := server.ListenAndServe(); err != nil {
+			log.Fatal("ListenAndServe: ", err)
+		}
+	}()
+
+	return server
 }
 
 func createStockBotUser(userRepo user.Repository) {

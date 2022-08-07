@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"text/template"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/jwtauth/v5"
@@ -12,6 +13,18 @@ import (
 func MakePublicHandlers(r *chi.Mux, userService user.Service, tokenAuth *jwtauth.JWTAuth) {
 	r.Post("/register", handleRegisterUser(userService))
 	r.Post("/auth", handleAuthUser(userService, tokenAuth))
+
+	r.HandleFunc("/login", handleLoginPage())
+}
+
+func handleLoginPage() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		template := template.Must(template.ParseFiles("./templates/login.html"))
+
+		data := map[string]interface{}{}
+
+		template.Execute(w, data)
+	}
 }
 
 func handleRegisterUser(service user.Service) http.HandlerFunc {
