@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"context"
 	"encoding/csv"
 	"fmt"
 	"log"
@@ -12,31 +13,49 @@ import (
 )
 
 type stockBot struct {
-	// writer is a function used to stock-bot send your messages trigger by commands
-	writer func(msg string) error
 	// listener is a channel used to stock-bot receive messages to proccess
 	listener chan *Message
 	// validCommands stores bot valid commands (key) and if accepts parameters (val)
 	validCommands map[string]func(string, rabbitmq.Producer)
 	// used to send stock-bot messages to chatroom
 	producer rabbitmq.Producer
+
+	ctx       context.Context
+	ctxCancel context.CancelFunc
 }
 
-func NewStockBot(writer func(msg string) error, listener chan *Message, producer rabbitmq.Producer) *stockBot {
-	return &stockBot{
-		writer:        writer,
-		listener:      listener,
+func NewStockBot(producer rabbitmq.Producer) *stockBot {
+	stockBot := &stockBot{
+		listener:      make(chan *Message),
 		validCommands: map[string]func(string, rabbitmq.Producer){"stock": proccessStockCommand},
 		producer:      producer,
 	}
+
+	stockBot.ctx, stockBot.ctxCancel = context.WithCancel(context.Background())
+
+	return stockBot
+}
+
+func (c *stockBot) GetListener() chan *Message {
+	return c.listener
 }
 
 func (c *stockBot) Start() {
 	for {
-		if client := <-c.listener; c.isCommand(client.Text) {
-			c.proccessCommand(client.Text)
+		select {
+		case client := <-c.listener:
+			if c.isCommand(client.Text) {
+				c.proccessCommand(client.Text)
+			}
+		case <-c.ctx.Done():
+			return
 		}
 	}
+}
+
+func (c *stockBot) Stop() {
+	c.ctxCancel()
+	close(c.listener)
 }
 
 func (c *stockBot) isCommand(msg string) bool {
@@ -44,7 +63,6 @@ func (c *stockBot) isCommand(msg string) bool {
 }
 
 func (c *stockBot) proccessCommand(msg string) {
-	// var parameter string
 	command := msg[1:]
 
 	if strings.Contains(command, "=") {
@@ -52,6 +70,7 @@ func (c *stockBot) proccessCommand(msg string) {
 		command = commandSplitted[0]
 	}
 
+	fmt.Println(command)
 	if proccessFunc, ok := c.validCommands[command]; ok {
 		proccessFunc(msg[1:], c.producer)
 		return
@@ -71,14 +90,12 @@ func proccessStockCommand(command string, producer rabbitmq.Producer) {
 	commandSplitted := strings.Split(command, "=")
 
 	if len(commandSplitted) < 2 {
-		// send to queue
 		producer.Send(MessageCommandNeedParameterError)
 		return
 	}
 
 	stockName := commandSplitted[1]
 	if stockName == "" {
-		// send to queue
 		producer.Send(MessageCommandParameterNotFoundError)
 		return
 	}
@@ -113,7 +130,9 @@ func proccessStockCommand(command string, producer rabbitmq.Producer) {
 		}
 	}
 
-	producer.Send(stockQuote.String())
+	if err := producer.Send(stockQuote.String()); err != nil {
+		log.Fatal(err)
+	}
 }
 
 type StockQuote struct {

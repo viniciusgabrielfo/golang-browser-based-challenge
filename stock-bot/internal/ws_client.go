@@ -3,6 +3,7 @@ package internal
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -36,6 +37,8 @@ func NewWebSocketClient(scheme, host, path, botNick, botPass string, dispatcher 
 		return nil, err
 	}
 
+	log.Infof("successfull connection with websocket on %s", client.url.String())
+
 	return client, nil
 }
 
@@ -57,7 +60,6 @@ func (c *webSocketClient) connect() error {
 		return err
 	}
 
-	c.log.Infof("successfull connection with websocket on %s", c.url.String())
 	c.conn = conn
 
 	go c.listen()
@@ -103,8 +105,8 @@ func (c *webSocketClient) listen() {
 	for {
 		var msg *Message
 		if err := c.conn.ReadJSON(&msg); err != nil {
-			c.log.Errorf("error when try to read message from websocket: %w", err)
-			return
+			c.log.Errorw("error when try to read message from websocket", "error", err)
+			continue
 		}
 
 		c.dispatcher <- msg
@@ -112,12 +114,22 @@ func (c *webSocketClient) listen() {
 }
 
 func (c *webSocketClient) Close() error {
-	return c.conn.Close()
+	if c.conn == nil {
+		return errors.New("no connection open")
+	}
+
+	c.conn.WriteMessage(websocket.CloseMessage, []byte(""))
+	if err := c.conn.Close(); err != nil {
+		return nil
+	}
+	c.conn = nil
+
+	return nil
 }
 
 func (c *webSocketClient) Write(msg string) error {
 	if err := c.conn.WriteMessage(websocket.TextMessage, []byte(msg)); err != nil {
-		c.log.Error("error when try to send message to websocket: %w", err)
+		c.log.Errorw("error when try to send message to websocket", "error", err)
 		return err
 	}
 

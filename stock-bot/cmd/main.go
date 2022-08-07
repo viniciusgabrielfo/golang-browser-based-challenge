@@ -51,20 +51,18 @@ func main() {
 
 	log = logger.Sugar()
 
-	botListener := make(chan *internal.Message)
-	defer close(botListener)
+	stockBot := internal.NewStockBot(configStockBotProducer())
+	go stockBot.Start()
+	log.Info("stock bot commands listener started...")
 
-	producer := configStockBotProducer()
-
-	wsClient, err := internal.NewWebSocketClient("ws", chatAddr, chatWsPath, chatAuthNick, chatAuthPass, botListener, log)
+	wsClient, err := internal.NewWebSocketClient("ws", chatAddr, chatWsPath, chatAuthNick, chatAuthPass, stockBot.GetListener(), log)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	stockBot := internal.NewStockBot(wsClient.Write, botListener, producer)
-	stockBot.Start()
-
 	<-stop
+
+	stockBot.Stop()
 	wsClient.Close()
 }
 
