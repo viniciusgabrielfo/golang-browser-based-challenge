@@ -61,9 +61,12 @@ func main() {
 	}
 
 	<-stop
+	log.Info("starting graceful shutdown...")
 
 	stockBot.Stop()
 	wsClient.Close()
+
+	log.Info("stock-bot finished")
 }
 
 func configStockBotProducer() rabbitmq.Producer {

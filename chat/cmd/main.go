@@ -90,7 +90,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	log.Info("app finished")
+	log.Info("chat app finished")
 }
 
 func createAmqpConnManager() *rabbitmq.AmqpConnManager {
