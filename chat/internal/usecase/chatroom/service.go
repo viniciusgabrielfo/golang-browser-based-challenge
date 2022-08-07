@@ -31,7 +31,9 @@ func (s *service) Start() {
 			}
 		case message := <-s.chatroom.GetBroadcastChan():
 			for Client := range s.chatroom.Clients {
-				Client.GetOutboundChan() <- message
+				if Client.User.ID != message.SenderID {
+					Client.GetOutboundChan() <- message
+				}
 			}
 		}
 	}
