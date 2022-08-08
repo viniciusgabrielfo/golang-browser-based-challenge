@@ -20,14 +20,14 @@ func MakePublicHandlers(r *chi.Mux, userService user.Service, tokenAuth *jwtauth
 
 func handleLoginPage() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		template := template.Must(template.ParseFiles("./templates/login.html"))
+		template := template.Must(template.ParseFiles("./chat/templates/login.html"))
 		template.Execute(w, nil)
 	}
 }
 
 func handleSignupPage() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		template := template.Must(template.ParseFiles("./templates/signup.html"))
+		template := template.Must(template.ParseFiles("./chat/templates/signup.html"))
 		template.Execute(w, nil)
 	}
 }

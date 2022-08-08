@@ -32,7 +32,7 @@ func MakePrivateHandlers(r *chi.Mux, chatroom *entity.Chatroom, userService user
 
 func handleChatPage() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		template := template.Must(template.ParseFiles("./templates/chat.html"))
+		template := template.Must(template.ParseFiles("./chat/templates/chat.html"))
 
 		_, claims, _ := jwtauth.FromContext(r.Context())
 
