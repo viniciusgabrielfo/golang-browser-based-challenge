@@ -42,19 +42,20 @@ func handleChatPage() http.HandlerFunc {
 
 func handleWebSocketConn(chatroom *entity.Chatroom, userService user.Service, logger *zap.SugaredLogger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		_, claims, _ := jwtauth.FromContext(r.Context())
+		user, err := userService.GetUser(uuid.MustParse(claims["user_id"].(string)))
+		if err != nil {
+			logger.Error(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("error identity user logged"))
+			return
+		}
+
 		upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			logger.Error(err)
-			return
-		}
-
-		_, claims, _ := jwtauth.FromContext(r.Context())
-		user, err := userService.GetUser(uuid.MustParse(claims["user_id"].(string)))
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("error identity user logged"))
 			return
 		}
 

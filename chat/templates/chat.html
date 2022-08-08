@@ -62,8 +62,11 @@
                             $("#buttonInput").click(this.onSubmitForm.bind(this));
 
                             this.socket.addEventListener('close', () => {
-                                console.log('connection has been closed');
+                                alert("Connection has been closed for some reason. Please, do a successful login before use chatroom")
+                                window.location.replace(`/login`);
                             });
+
+                        
                             this.socket.addEventListener('message', this.onReceiveMessage.bind(this))
                         }
 
