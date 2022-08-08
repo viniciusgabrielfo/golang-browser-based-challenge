@@ -46,6 +46,7 @@ If you don't have RabbitMQ locally installed, to run a RabbitMQ ina a container 
 
 - [Golang: 1.18](https://go.dev/dl/)
 - [Docker (only to run rabbitmq container)](https://www.docker.com/products/docker-desktop/) 
+- [Infrastructure](#infrastructure)
 
 
 </details>
