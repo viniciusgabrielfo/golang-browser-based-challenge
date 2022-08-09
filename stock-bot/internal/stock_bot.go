@@ -12,6 +12,13 @@ import (
 	"github.com/viniciusgabrielfo/golang-browser-based-challenge/stock-bot/pkg/rabbitmq"
 )
 
+const stooqGetStockURL = "https://stooq.com/q/l/?s=%s&f=sd2t2ohlcv&h&e=csv"
+
+const (
+	MessageCommandNeedParameterError     = "Command '/stock' need a parameter to run. For example: '/stock=parameter'. Please try again."
+	MessageCommandParameterNotFoundError = "Command '/stock' need a no empety parameter. For example: '/stock=parameter'. Please try again."
+)
+
 type stockBot struct {
 	// nick registered for stock-bot
 	nick string
@@ -82,13 +89,6 @@ func (c *stockBot) proccessCommand(msg string) {
 	c.producer.Send(c.nick, fmt.Sprintf("command '%s' not found", command))
 }
 
-const stooqGetStockURL = "https://stooq.com/q/l/?s=%s&f=sd2t2ohlcv&h&e=csv"
-
-const (
-	MessageCommandNeedParameterError     = "Command '/stock' need a parameter to run. For example: '/stock=parameter'. Please try again."
-	MessageCommandParameterNotFoundError = "Command '/stock' need a no empety parameter. For example: '/stock=parameter'. Please try again."
-)
-
 func (c *stockBot) proccessStockCommand(command string, producer rabbitmq.Producer) {
 	commandSplitted := strings.Split(command, "=")
 
@@ -136,13 +136,4 @@ func (c *stockBot) proccessStockCommand(command string, producer rabbitmq.Produc
 	if err := producer.Send(c.nick, stockQuote.String()); err != nil {
 		log.Fatal(err)
 	}
-}
-
-type StockQuote struct {
-	Symbol string
-	Quote  float64
-}
-
-func (s *StockQuote) String() string {
-	return fmt.Sprintf("%s quote is $%.2f per share", s.Symbol, s.Quote)
 }
