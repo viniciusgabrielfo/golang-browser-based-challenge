@@ -3,16 +3,16 @@ help: # Print help on Makefile
 	sed "s/\(.\+\):\s*\(.*\) #\s*\(.*\)/`printf "\033[93m"`\1`printf "\033[0m"`	\3 [\2]/" | \
 	expand -t20
 
-build: generate-local-workspace # builds all services
+build: # builds all services
 	@echo "Building all services..."
 	@go build -o ./chat/bin/chatapp ./chat/cmd
 	@go build -o ./stock-bot/bin/stock-bot ./stock-bot/cmd
 	@echo "All services were built. Check ./bin in each module folder"
 
-start-chat-app: generate-local-workspace
+start-chat-app:
 	@go run chat/cmd/main.go
 
-start-stock-bot: generate-local-workspace
+start-stock-bot:
 	@go run stock-bot/cmd/main.go
 
 start-docker-services:
@@ -21,7 +21,7 @@ start-docker-services:
 stop-docker-services:
 	docker stop rabbitmq || true
 
-run-services-local: generate-local-workspace build
+run-services-local:
 	@echo "Starting chat app..."
 	./chat/bin/chatapp > logs/chatapp.log 2>&1 &
 	@sleep 2
