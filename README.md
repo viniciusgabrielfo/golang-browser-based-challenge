@@ -41,15 +41,16 @@ If you don't have RabbitMQ locally installed, to run a RabbitMQ ina a container 
 
 ## Running Locally
 
-<details>
-<summary>Requirements</summary>
-
+Requirements
 - [Golang: 1.18](https://go.dev/dl/)
 - [Docker (only to run rabbitmq container)](https://www.docker.com/products/docker-desktop/) 
 - [Infrastructure](#infrastructure)
 
-
-</details>
+### Using Makefile (recommended)
+To run any Make or Go command at the project root **is necessary a go.work file**. To generate run:
+```bash
+make generate-local-workspace
+```
 
 To run chatapp and stock-bot together you can run the following Make command:
 ```bash
@@ -61,6 +62,8 @@ If you want to stop the execution, you can run:
 ```bash
 make stop-services-local
 ```
+
+### Using Bash Directly
 If you are not a fan of Makefile or can't use it, run the application directly by `go run` in root folder:
 ```bash
 go work init
@@ -69,6 +72,7 @@ go run chat/cmd/main.go
 go run stock-bot/cmd/main.go
 ```
 > It's important to generate a go.work to get a better experience with multi-modules
+
 ## Endpoints
 | Endpoint | Description | Type | Need JWT |
 |---       |---          |---   |---   
@@ -78,7 +82,6 @@ go run stock-bot/cmd/main.go
 | POST /auth | Authenticate with the server | API |  |
 | POST /register | Register a new user on the server | API | |
 | GET /ws | Connect to chatroom websocket | API | :white_check_mark: |
-
 
 ### POST /auth
 Payload:
