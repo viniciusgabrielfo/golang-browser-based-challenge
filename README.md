@@ -15,11 +15,18 @@ Responsible to handle the command `/stock=symbol` on the chatroom. Works as if y
 ## Table of Contents
 
 - [Table of Contents](#table-of-contents)
+- [How to Use](#how-to-use)
 - [Infrastructure](#infrastructure)
     - [RabbitMQ](#rabbitmq)
 - [Running Locally](#running-localy)
 - [ChatApp Endpoints](#Endpoints)
 
+## How to Use
+**It will only work if all services are running, If not please visit [Infrastructure](#infrastructure) and [Running Locally](#running-localy)**
+
+1. Access `localhost:8000/login`
+2. If you don't have a user, click to Signup or access `localhost:8000/signup`
+3. Login with your user and password (you will be redirected to chatroom, if not access `localhost:8000/chatroom`) 
 
 ## Infrastructure
 The application needs the following services to run:
