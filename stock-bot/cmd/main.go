@@ -50,6 +50,7 @@ func main() {
 	defer logger.Sync()
 
 	log = logger.Sugar()
+	log.Info("starting stock-bot...")
 
 	stockBot := internal.NewStockBot(chatAuthNick, configStockBotProducer())
 	go stockBot.Start()
