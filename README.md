@@ -63,9 +63,12 @@ make stop-services-local
 ```
 If you are not a fan of Makefile or can't use it, run the application directly by `go run` in root folder:
 ```bash
+go work init
+go work use -r . 
 go run chat/cmd/main.go
 go run stock-bot/cmd/main.go
 ```
+> It's important to generate a go.work to get a better experience with multi-modules
 ## Endpoints
 | Endpoint | Description | Type | Need JWT |
 |---       |---          |---   |---   
